@@ -24,6 +24,11 @@ public class convert implements Cmd {
             return false;
         }
 
+        if (Jobs.getDBManager().getDbType() == DataBaseType.PostgreSQL) {
+            CMIMessages.consoleMessage("&cPostgreSQL conversion is not supported by this command yet.");
+            return true;
+        }
+
         String from = Jobs.getDBManager().getDbType() == DataBaseType.SqLite ? "SQLite" : "MySQL";
         String to = Jobs.getDBManager().getDbType() == DataBaseType.SqLite ? "MySQL" : "SQLite";
 

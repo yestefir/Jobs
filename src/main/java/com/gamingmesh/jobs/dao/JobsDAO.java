@@ -417,6 +417,8 @@ public abstract class JobsDAO {
             switch (dbType) {
             case MySQL:
                 return mySQL.replace("[tableName]", prefix + tableName);
+            case PostgreSQL:
+                return mySQL.replace("[tableName]", prefix + tableName);
             case SqLite:
                 return sQlite.replace("[tableName]", tableName);
             default:
@@ -450,6 +452,9 @@ public abstract class JobsDAO {
                 case MySQL:
                     unique = " , UNIQUE KEY template_" + tableName + " (" + unique + ")";
                     break;
+                case PostgreSQL:
+                    unique = " , UNIQUE (" + unique + ")";
+                    break;
                 case SqLite:
                     unique = " , UNIQUE (" + unique + ")";
                     break;
@@ -471,6 +476,10 @@ public abstract class JobsDAO {
     }
 
     protected JobsDAO(Jobs plugin, String driverName, String url, String username, String password, String pr) {
+        this(plugin, driverName, url, username, password, pr, false);
+    }
+
+    protected JobsDAO(Jobs plugin, String driverName, String url, String username, String password, String pr, boolean postgreSql) {
         this.plugin = plugin;
 
         prefix = pr;
@@ -483,7 +492,7 @@ public abstract class JobsDAO {
         }
 
         try {
-            pool = new JobsConnectionPool(driverName, url, username, password);
+            pool = new JobsConnectionPool(driverName, url, username, password, postgreSql);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -584,6 +593,11 @@ public abstract class JobsDAO {
      */
     protected String getPrefix() {
         return prefix;
+    }
+
+    protected String adaptSql(String sql) {
+        JobsConnection conn = getConnection();
+        return conn == null ? sql : conn.adaptSql(sql);
     }
 
     public CompletableFuture<List<JobsDAOData>> getAllJobsAsync(OfflinePlayer player) {
@@ -1665,9 +1679,9 @@ public abstract class JobsDAO {
         try {
             statement = conns.createStatement();
             if (Jobs.getDBManager().getDbType() == DataBaseType.MySQL) {
-                statement.executeUpdate("TRUNCATE TABLE `" + DBTables.ArchiveTable.getTableName() + "`");
+                statement.executeUpdate(adaptSql("TRUNCATE TABLE `" + DBTables.ArchiveTable.getTableName() + "`"));
             } else {
-                statement.executeUpdate("DELETE from `" + DBTables.ArchiveTable.getTableName() + "`");
+                statement.executeUpdate(adaptSql("DELETE from `" + DBTables.ArchiveTable.getTableName() + "`"));
             }
 
             insert = conns.prepareStatement("INSERT INTO `" + DBTables.ArchiveTable.getTableName() + "` (`" + ArchiveTableFields.userid.getCollumn()
@@ -2934,7 +2948,7 @@ public abstract class JobsDAO {
         }
 
         try (Statement stmt = conn.createStatement()) {
-            stmt.execute(sql);
+            stmt.execute(adaptSql(sql));
         }
     }
 

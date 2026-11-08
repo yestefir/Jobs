@@ -58,6 +58,23 @@ To install the Jobs-Reborn plugin along with the CMILib library, follow these st
 - After the initial run, if you see the message 'Done!' with no issues, the plugin will have generated the necessary language and configuration files.
 - Stop and restart the server one more time to review the plugin configurations. You can customize jobs, economy, chat settings, and more by following the guidance on the zrips.net > Jobs pages.
 
+### PostgreSQL
+
+Set `storage.method` to `postgresql` in `plugins/Jobs/config.yml`. The PostgreSQL connection uses the following keys:
+
+```yaml
+storage.method: postgresql
+postgresql.hostname: localhost:5432
+postgresql.database: minecraft
+postgresql.username: postgres
+postgresql.password: change-me
+postgresql.schema: public
+postgresql.table-prefix: jobs_
+postgresql.use-ssl: false
+```
+
+The `schema` value is passed as the JDBC `currentSchema` parameter. Existing MySQL and SQLite configurations are unchanged.
+
 ## Basic Permissions for Players
 
 The Jobs-Reborn plugin requires some configuration in order for players to use the plugin, this includes the ability to use it, to browse and pick jobs, and to only get paid out in certain worlds. Below is an example of some basic permissions you can consider using to achieve that. (This requires a permission manager)

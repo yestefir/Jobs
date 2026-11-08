@@ -35,6 +35,10 @@ public class JobsMySQL extends JobsDAO {
         setDbType(DataBaseType.MySQL);
     }
 
+    protected JobsMySQL(Jobs plugin, String driver, String url, String username, String password, String prefix, boolean postgreSql) {
+        super(plugin, driver, url, username, password, prefix, postgreSql);
+    }
+
     public void initialize() {
         setUp();
     }
@@ -86,7 +90,7 @@ public class JobsMySQL extends JobsDAO {
         Statement statement = null;
         try {
             statement = conn.createStatement();
-            statement.execute(query);
+            statement.execute(adaptSql(query));
         } catch (SQLException e) {
             CMIMessages.consoleMessage("&cCould not create table, SQLException: " + e.getMessage());
             return false;
@@ -144,7 +148,7 @@ public class JobsMySQL extends JobsDAO {
             return false;
         }
         try {
-            statement.executeQuery("SELECT `" + collumn + "` FROM `" + table + "`;");
+            statement.executeQuery(adaptSql("SELECT `" + collumn + "` FROM `" + table + "`;"));
             return true;
         } catch (SQLException e) {
             CMIMessages.consoleMessage("Not a collumn |" + "SELECT " + collumn + " FROM " + table + "|");
@@ -165,7 +169,7 @@ public class JobsMySQL extends JobsDAO {
         }
         try {
             CMIMessages.consoleMessage("Creating collumn |" + "ALTER TABLE `" + table + "` ADD COLUMN `" + collumn + "` " + type + ";" + "|");
-            statement.executeUpdate("ALTER TABLE `" + table + "` ADD COLUMN `" + collumn + "` " + type + ";");
+            statement.executeUpdate(adaptSql("ALTER TABLE `" + table + "` ADD COLUMN `" + collumn + "` " + type + ";"));
             return true;
         } catch (SQLException e) {
             return false;
@@ -183,7 +187,7 @@ public class JobsMySQL extends JobsDAO {
                 return false;
             }
             statement = getConnection().createStatement();
-            statement.executeUpdate("DELETE FROM " + table + ";");
+            statement.executeUpdate(adaptSql("DELETE FROM " + table + ";"));
             return true;
         } catch (SQLException e) {
             CMIMessages.consoleMessage("&cCould not wipe table, SQLException: " + e.getMessage());
@@ -203,7 +207,7 @@ public class JobsMySQL extends JobsDAO {
                 return false;
             }
             statement = getConnection().createStatement();
-            statement.executeUpdate("DROP TABLE IF EXISTS `" + table + "`;");
+            statement.executeUpdate(adaptSql("DROP TABLE IF EXISTS `" + table + "`;"));
             return true;
         } catch (SQLException e) {
             CMIMessages.consoleMessage("&cCould not wipe table, SQLException: " + e.getMessage());

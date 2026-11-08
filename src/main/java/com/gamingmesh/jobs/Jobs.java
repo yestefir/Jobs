@@ -108,7 +108,6 @@ import com.gamingmesh.jobs.listeners.JobsPayment1_9Listener;
 import com.gamingmesh.jobs.listeners.JobsPaymentListener;
 import com.gamingmesh.jobs.listeners.JobsPaymentVisualizationListener;
 import com.gamingmesh.jobs.listeners.Paper1_20_5Listeners;
-import com.gamingmesh.jobs.listeners.Paper26_3_Listeners;
 import com.gamingmesh.jobs.listeners.PistonProtectionListener;
 import com.gamingmesh.jobs.listeners.PlayerSignEdit1_20Listeners;
 import com.gamingmesh.jobs.listeners.upTo1_13Listeners;
@@ -807,8 +806,10 @@ public final class Jobs extends JavaPlugin {
 
             startup();
 
-            if (status.equals(LoadStatus.MYSQLFailure) || status.equals(LoadStatus.SQLITEFailure)) {
-                CMIMessages.consoleMessage("&cCould not connect to " + (status.equals(LoadStatus.MYSQLFailure) ? "MySQL" : "SqLite") + "!");
+            if (status.equals(LoadStatus.MYSQLFailure) || status.equals(LoadStatus.POSTGRESQLFailure) || status.equals(LoadStatus.SQLITEFailure)) {
+                String database = status.equals(LoadStatus.MYSQLFailure) ? "MySQL"
+                        : status.equals(LoadStatus.POSTGRESQLFailure) ? "PostgreSQL" : "SqLite";
+                CMIMessages.consoleMessage("&cCould not connect to " + database + "!");
                 CMIMessages.consoleMessage("&cPlugin will be disabled");
                 this.onDisable();
                 this.setEnabled(false);
@@ -889,8 +890,6 @@ public final class Jobs extends JavaPlugin {
         if (Version.isPaperBranch()) {
             if (Version.isCurrentEqualOrHigher(Version.v1_20_5))
                 pm.registerEvents(new Paper1_20_5Listeners(), getInstance());
-            if (Version.isCurrentEqualOrHigher(Version.v26_3_0))
-                pm.registerEvents(new Paper26_3_Listeners(), getInstance());
         }
 
         if (getGCManager().useBlockProtection) {

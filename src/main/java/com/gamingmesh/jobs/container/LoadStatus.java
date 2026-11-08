@@ -1,5 +1,5 @@
 package com.gamingmesh.jobs.container;
 
 public enum LoadStatus {
-    MYSQLFailure, SQLITEFailure, Good;
+    MYSQLFailure, POSTGRESQLFailure, SQLITEFailure, Good;
 }

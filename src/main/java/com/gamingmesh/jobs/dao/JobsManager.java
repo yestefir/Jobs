@@ -14,7 +14,7 @@ public class JobsManager {
     private DataBaseType dbType = DataBaseType.SqLite;
 
     public enum DataBaseType {
-        MySQL, SqLite
+        MySQL, PostgreSQL, SqLite
     }
 
     public JobsManager(Jobs plugin) {
@@ -32,7 +32,13 @@ public class JobsManager {
         // Picking opposite database then it is currently
         switch (dbType) {
         case MySQL:
-            // If it MySQL lets change to SqLite
+            dbType = DataBaseType.PostgreSQL;
+            dao = startPostgreSql();
+
+            if (dao != null)
+                dao.setDbType(dbType);
+            break;
+        case PostgreSQL:
             dbType = DataBaseType.SqLite;
             dao = startSqlite();
 
@@ -40,7 +46,6 @@ public class JobsManager {
                 dao.setDbType(dbType);
             break;
         case SqLite:
-            // If it SqLite lets change to MySQL
             dbType = DataBaseType.MySQL;
             dao = startMysql();
 
@@ -84,7 +89,7 @@ public class JobsManager {
 
         ConfigReader c = Jobs.getGCManager().getConfig();
 
-        c.addComment("storage.method", "storage method, can be MySQL or sqlite");
+        c.addComment("storage.method", "storage method, can be MySQL, PostgreSQL or sqlite");
         String storageMethod = c.get("storage.method", "sqlite");
         c.addComment("mysql", "Requires Mysql");
 
@@ -99,11 +104,25 @@ public class JobsManager {
         characterEncoding = c.get("mysql.characterEncoding", "utf8");
         encoding = c.get("mysql.encoding", "UTF-8");
 
+        String postgresUsername = c.get("postgresql.username", username);
+        String postgresPassword = c.get("postgresql.password", password);
+        String postgresHostname = c.get("postgresql.hostname", "localhost:5432");
+        String postgresDatabase = c.get("postgresql.database", database);
+        String postgresSchema = c.get("postgresql.schema", "public");
+        String postgresPrefix = c.get("postgresql.table-prefix", prefix);
+        boolean postgresSsl = c.get("postgresql.use-ssl", false);
+
         if (storageMethod.equalsIgnoreCase("mysql")) {
             dbType = DataBaseType.MySQL;
             dao = startMysql();
             if (dao == null || dao.getConnection() == null) {
                 Jobs.status = LoadStatus.MYSQLFailure;
+            }
+        } else if (storageMethod.equalsIgnoreCase("postgresql") || storageMethod.equalsIgnoreCase("postgres")) {
+            dbType = DataBaseType.PostgreSQL;
+            dao = startPostgreSql(postgresHostname, postgresDatabase, postgresUsername, postgresPassword, postgresPrefix, postgresSchema, postgresSsl);
+            if (dao == null || dao.getConnection() == null) {
+                Jobs.status = LoadStatus.POSTGRESQLFailure;
             }
         } else {
             if (!storageMethod.equalsIgnoreCase("sqlite")) {
@@ -156,6 +175,24 @@ public class JobsManager {
 
     private synchronized JobsSQLite startSqlite() {
         JobsSQLite data = new JobsSQLite(plugin, Jobs.getFolder());
+        data.initialize();
+        return data;
+    }
+
+    private synchronized JobsPostgreSQL startPostgreSql() {
+        ConfigReader c = Jobs.getGCManager().getConfig();
+        return startPostgreSql(c.get("postgresql.hostname", "localhost:5432"),
+                c.get("postgresql.database", "minecraft"), c.get("postgresql.username", "root"),
+                c.get("postgresql.password", ""), c.get("postgresql.table-prefix", "jobs_"),
+                c.get("postgresql.schema", "public"), c.get("postgresql.use-ssl", false));
+    }
+
+    private synchronized JobsPostgreSQL startPostgreSql(String hostname, String database, String username, String password,
+            String prefix, String schema, boolean ssl) {
+        if (!plugin.isEnabled())
+            return null;
+
+        JobsPostgreSQL data = new JobsPostgreSQL(plugin, hostname, database, username, password, prefix, schema, ssl);
         data.initialize();
         return data;
     }

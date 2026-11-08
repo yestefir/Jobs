@@ -6,7 +6,7 @@
 
 	<groupId>Jobs</groupId>
 	<artifactId>jobs</artifactId>
-	<version>5.2.6.7</version>
+	<version>5.2.6.5</version>
 	<name>Jobs</name>
 	<url>http://maven.apache.org</url>
 
@@ -17,17 +17,23 @@
 	</properties>
 
 	<dependencies>
+		<!-- PostgreSQL JDBC driver; bundled so PostgreSQL works without a server-side plugin dependency. -->
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<version>42.7.4</version>
+		</dependency>
 		<!-- Spigot API -->
         <dependency>
 			<groupId>io.papermc.paper</groupId>
 			<artifactId>paper-api</artifactId>
-			<version>26.3.build.181-stable</version>
+			<version>1.21.4-R0.1-SNAPSHOT</version>
 			<scope>provided</scope>
 		</dependency>
         <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
-            <version>26.3-R0.1-SNAPSHOT</version>
+			<version>1.21.4-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
 		<!-- Mojang Authlib -->
@@ -219,6 +225,10 @@
 	</dependencies>
 	<repositories>
 		<repository>
+			<id>papermc</id>
+			<url>https://repo.papermc.io/repository/maven-public/</url>
+		</repository>
+		<repository>
 			<id>momirealms</id>
 			<url>https://repo.momirealms.net/releases/</url>
 		</repository>
@@ -297,6 +307,26 @@
 					<source>${maven.compiler.source}</source>
 					<target>${maven.compiler.target}</target>
 				</configuration>
+			</plugin>
+			<!-- Include only the PostgreSQL JDBC driver; other integrations remain server/plugin provided. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>3.6.0</version>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals><goal>shade</goal></goals>
+						<configuration>
+							<createDependencyReducedPom>false</createDependencyReducedPom>
+							<artifactSet>
+								<includes>
+									<include>org.postgresql:postgresql</include>
+								</includes>
+							</artifactSet>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>

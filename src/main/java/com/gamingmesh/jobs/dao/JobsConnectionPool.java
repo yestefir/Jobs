@@ -13,14 +13,20 @@ public class JobsConnectionPool {
     private String url;
     private String username;
     private String password;
+    private boolean postgreSql;
 
     public JobsConnectionPool(String driverName, String url, String username, String password) throws InstantiationException, IllegalAccessException, ClassNotFoundException, SQLException {
+	this(driverName, url, username, password, false);
+    }
+
+    public JobsConnectionPool(String driverName, String url, String username, String password, boolean postgreSql) throws InstantiationException, IllegalAccessException, ClassNotFoundException, SQLException {
 	Driver driver = (Driver) Class.forName(driverName, true, Jobs.getJobsClassloader()).newInstance();
 	JobsDrivers jDriver = new JobsDrivers(driver);
 	DriverManager.registerDriver(jDriver);
 	this.url = url;
 	this.username = username;
 	this.password = password;
+	this.postgreSql = postgreSql;
     }
 
     public synchronized JobsConnection getConnection() throws SQLException {
@@ -33,7 +39,7 @@ public class JobsConnectionPool {
 	}
 	if (this.connection == null) {
 	    Connection conn = DriverManager.getConnection(this.url, this.username, this.password);
-	    this.connection = new JobsConnection(conn);
+	    this.connection = new JobsConnection(conn, postgreSql);
 	}
 	return this.connection;
     }
