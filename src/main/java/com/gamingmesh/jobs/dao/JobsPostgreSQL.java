@@ -16,8 +16,12 @@ public class JobsPostgreSQL extends JobsMySQL {
 
     private static String buildUrl(String hostname, String database, String schema, boolean ssl) {
         String safeSchema = schema == null || schema.trim().isEmpty() ? "public" : schema.trim();
+        // Timeouts (seconds) so a stalled socket fails instead of holding the
+        // shared connection and DAO locks forever. Jobs queries are small, so
+        // 30 seconds is far above any normal query time.
         return "jdbc:postgresql://" + hostname + "/" + database
-                + "?currentSchema=" + safeSchema + "&ssl=" + ssl;
+                + "?currentSchema=" + safeSchema + "&ssl=" + ssl
+                + "&connectTimeout=10&loginTimeout=10&socketTimeout=30&tcpKeepAlive=true";
     }
 
     public void initialize() {

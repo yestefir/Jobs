@@ -87,7 +87,8 @@ public class Job {
 
     private long rejoinCd = 0L;
 
-    private int totalPlayers = -1;
+    private volatile int totalPlayers = -1;
+    private final java.util.concurrent.atomic.AtomicBoolean totalPlayersLoading = new java.util.concurrent.atomic.AtomicBoolean();
     private Double bonus;
 
     private BoostMultiplier boost = new BoostMultiplier();
@@ -219,10 +220,49 @@ public class Job {
      */
     public int getTotalPlayers() {
         if (totalPlayers == -1) {
+            // Never query the database on the main thread (GUI, /jobs browse,
+            // placeholders); load in the background and show 0 until it arrives.
+            if (Bukkit.isPrimaryThread()) {
+                updateTotalPlayersAsync();
+                return 0;
+            }
             updateTotalPlayers();
         }
 
-        return totalPlayers;
+        return Math.max(totalPlayers, 0);
+    }
+
+    /**
+     * Loads the total players from the database off the main thread, then
+     * applies the value on the main thread.
+     */
+    public void updateTotalPlayersAsync() {
+        if (!totalPlayersLoading.compareAndSet(false, true))
+            return;
+
+        java.util.concurrent.CompletableFuture.supplyAsync(this::loadTotalPlayersFromDatabase).whenComplete((count, error) -> {
+            try {
+                if (error != null || count == null) {
+                    totalPlayersLoading.set(false);
+                    return;
+                }
+                Bukkit.getScheduler().runTask(Jobs.getInstance(), () -> {
+                    totalPlayers = count;
+                    totalPlayersLoading.set(false);
+                    updateBonus();
+                });
+            } catch (Throwable t) {
+                // Plugin disabled before the result arrived.
+                totalPlayersLoading.set(false);
+            }
+        });
+    }
+
+    private int loadTotalPlayersFromDatabase() {
+        int count = Jobs.getJobsDAO().getTotalPlayerAmountByJobName(jobName);
+        if (count <= 0)
+            count = Jobs.getJobsDAO().getTotalPlayerAmountByJobName(fullName);
+        return count;
     }
 
     /**
@@ -231,6 +271,11 @@ public class Job {
      * @return the new total
      */
     public int modifyTotalPlayerWorking(int change) {
+        if (totalPlayers == -1) {
+            // Not loaded yet; the background load will read the real value.
+            updateTotalPlayersAsync();
+            return 0;
+        }
         totalPlayers = CMINumber.clamp(totalPlayers + change, 0, Integer.MAX_VALUE);
         updateBonus();
         return totalPlayers;
@@ -240,11 +285,7 @@ public class Job {
      * Updates the total players property from database synchronously.
      */
     public void updateTotalPlayers() {
-        totalPlayers = Jobs.getJobsDAO().getTotalPlayerAmountByJobName(jobName);
-
-        if (totalPlayers <= 0) {
-            totalPlayers = Jobs.getJobsDAO().getTotalPlayerAmountByJobName(fullName);
-        }
+        totalPlayers = loadTotalPlayersFromDatabase();
 
         updateBonus();
     }

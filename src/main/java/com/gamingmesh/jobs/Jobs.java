@@ -960,6 +960,10 @@ public final class Jobs extends JavaPlugin {
         for (Job job : jobs) {
             usedSlots.put(job, dao.getSlotsTaken(job));
         }
+        // Load worker counts in the background so GUIs never query the DB on the main thread.
+        for (Job job : jobs) {
+            job.updateTotalPlayersAsync();
+        }
         getPlayerManager().reload();
         getPermissionHandler().registerPermissions();
 
@@ -1024,6 +1028,7 @@ public final class Jobs extends JavaPlugin {
         }
 
         if (dao != null) {
+            dao.flushWrites(20);
             dao.closeConnections();
             CMIMessages.consoleMessage("&eClosed database connection");
         }

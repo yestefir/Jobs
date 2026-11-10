@@ -1383,7 +1383,7 @@ public abstract class JobsDAO {
      * 
      * @return total amount of player currently working.
      */
-    public synchronized int getTotalPlayers() {
+    public int getTotalPlayers() {
         int total = 0;
         for (Job one : Jobs.getJobs()) {
             total += one.getTotalPlayers();
@@ -1576,8 +1576,10 @@ public abstract class JobsDAO {
      * @param player - player that wishes to join the job
      * @param job    - job that the player wishes to join
      */
-    public synchronized void joinJob(JobsPlayer jPlayer, JobProgression job) {
-        CompletableFuture.runAsync(() -> {
+    public void joinJob(JobsPlayer jPlayer, JobProgression job) {
+        // Not synchronized: this only queues the insert. Holding the DAO lock here
+        // made the main thread wait behind any slow DB call (server freeze).
+        queueWrite(() -> {
             JobsConnection conn = getConnection();
             if (conn == null)
                 return;
@@ -1729,7 +1731,14 @@ public abstract class JobsDAO {
      * @param player - player that wishes to quit the job
      * @param job    - job that the player wishes to quit
      */
-    public synchronized boolean quitJob(JobsPlayer jPlayer, Job job) {
+    public boolean quitJob(JobsPlayer jPlayer, Job job) {
+        // Called from the main thread (/jobs leave, transfer). Run the delete on the
+        // write queue so it keeps its order with joinJob and never blocks the server.
+        queueWrite(() -> deleteJobRow(jPlayer, job));
+        return true;
+    }
+
+    private synchronized boolean deleteJobRow(JobsPlayer jPlayer, Job job) {
         JobsConnection conn = getConnection();
         if (conn == null)
             return false;
@@ -2004,7 +2013,12 @@ public abstract class JobsDAO {
      * @param player - player that wishes to quit the job
      * @param job    - job that the player wishes to quit
      */
-    public synchronized void deleteArchive(JobsPlayer jPlayer, Job job) {
+    public void deleteArchive(JobsPlayer jPlayer, Job job) {
+        // Called from the main thread when rejoining a job; queue it like other writes.
+        queueWrite(() -> deleteArchiveRow(jPlayer, job));
+    }
+
+    private synchronized void deleteArchiveRow(JobsPlayer jPlayer, Job job) {
         jPlayer.getArchivedJobs().removeArchivedJob(job);
         JobsConnection conn = getConnection();
         if (conn == null)
@@ -2024,6 +2038,33 @@ public abstract class JobsDAO {
     }
 
     private final ExecutorService service = Executors.newCachedThreadPool();
+
+    // Single thread so job inserts and deletes run in the order they were made.
+    private final ExecutorService writeExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "Jobs-DatabaseWriteThread");
+        t.setDaemon(true);
+        return t;
+    });
+
+    private void queueWrite(Runnable task) {
+        try {
+            writeExecutor.execute(task);
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            // Queue already shut down (plugin disabling): run it here instead of dropping it.
+            task.run();
+        }
+    }
+
+    /** Waits for queued job inserts/deletes to finish. Call on plugin disable. */
+    public void flushWrites(long timeoutSeconds) {
+        writeExecutor.shutdown();
+        try {
+            if (!writeExecutor.awaitTermination(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS))
+                Jobs.getPluginLogger().warning("Jobs DB write queue did not finish in " + timeoutSeconds + "s");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
 
     public void saveAsync(JobsPlayer player) {
         this.service.execute(() -> save(player));
@@ -2960,7 +3001,11 @@ public abstract class JobsDAO {
 
     protected JobsConnection getConnection() {
         try {
-            return isConnected() ? pool.getConnection() : null;
+            // One pool lookup (one validity check) instead of two via isConnected().
+            if (pool == null)
+                return null;
+            JobsConnection conn = pool.getConnection();
+            return conn != null && !conn.isClosed() ? conn : null;
         } catch (SQLException e) {
             Jobs.getPluginLogger().severe("Unable to connect to the database: " + e.getMessage());
             return null;
